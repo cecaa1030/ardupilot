@@ -26,6 +26,9 @@
 #include <AP_Math/AP_Math.h>
 #include <stdio.h>
 
+#include <GCS_MAVLink/GCS.h>
+
+
 #define RM3100_POLL_REG        0x00
 
 #define RM3100_CMM_REG         0x01
@@ -126,16 +129,19 @@ bool AP_Compass_RM3100::init()
         return false;
     }
 
-    dev->setup_checked_registers(8);
+	gcs().send_text(MAV_SEVERITY_DEBUG, "RM3100 Init");
 
-    dev->write_register(RM3100_TMRC_REG, TMRC, true); // CMM data rate
-    dev->write_register(RM3100_CMM_REG, CMM, true); // CMM configuration
-    dev->write_register(RM3100_CCX1_REG, CCP1, true); // cycle count x
-    dev->write_register(RM3100_CCX0_REG, CCP0, true); // cycle count x
-    dev->write_register(RM3100_CCY1_REG, CCP1, true); // cycle count y
-    dev->write_register(RM3100_CCY0_REG, CCP0, true); // cycle count y
-    dev->write_register(RM3100_CCZ1_REG, CCP1, true); // cycle count z
-    dev->write_register(RM3100_CCZ0_REG, CCP0, true); // cycle count z
+    dev->setup_checked_registers(0);
+
+    dev->write_register(RM3100_CCX1_REG, CCP1, false); // cycle count x
+    dev->write_register(RM3100_CCX0_REG, CCP0, false); // cycle count x
+    dev->write_register(RM3100_CCY1_REG, CCP1, false); // cycle count y
+    dev->write_register(RM3100_CCY0_REG, CCP0, false); // cycle count y
+    dev->write_register(RM3100_CCZ1_REG, CCP1, false); // cycle count z
+    dev->write_register(RM3100_CCZ0_REG, CCP0, false); // cycle count z
+
+	dev->write_register(RM3100_TMRC_REG, TMRC, false); // CMM data rate
+	dev->write_register(RM3100_CMM_REG, CMM, false); // CMM configuration / Initiate Continuous Measurement Mode
 
     _scaler = (1 / GAIN_CC200) * UTESLA_TO_MGAUSS; // has to be changed if using a different cycle count
 
@@ -151,7 +157,8 @@ bool AP_Compass_RM3100::init()
     }
     set_dev_id(compass_instance, dev->get_bus_id());
 
-    DEV_PRINTF("RM3100: Found at address 0x%x as compass %u\n", dev->get_bus_address(), compass_instance);
+    DEV_PRINTF("RM3100: Found at address 0x%x as compass %u\n", dev->get_bus_address(), compass_instance);	
+	gcs().send_text(MAV_SEVERITY_INFO, "RM3100: Found at address 0x%x as compass %u\n", dev->get_bus_address(), compass_instance);
     
     set_rotation(compass_instance, rotation);
 
@@ -187,6 +194,7 @@ void AP_Compass_RM3100::timer()
     // check data ready on 3 axis
     uint8_t status;
     if (!dev->read_registers(RM3100_STATUS_REG, (uint8_t *)&status, 1)) {
+		gcs().send_text(MAV_SEVERITY_DEBUG, "RM3100 Read STATUS Failed");
         goto check_registers;
     }
 
@@ -196,6 +204,7 @@ void AP_Compass_RM3100::timer()
     }
 
     if (!dev->read_registers(RM3100_MX2_REG, (uint8_t *)&data, sizeof(data))) {
+		gcs().send_text(MAV_SEVERITY_DEBUG, "RM3100 Read DATA Failed");
         goto check_registers;
     }
 
